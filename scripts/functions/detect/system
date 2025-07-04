@@ -90,6 +90,12 @@ __rvm_detect_system()
         _system_arch="$( dpkg --print-architecture )"
         __rvm_detect_debian_major_version_from_codename
       elif
+        [[ -f /etc/alpine-release ]]
+      then
+        _system_name="Alpine"
+        _system_version="$(\command \cat /etc/alpine-release | head -n 1 )"
+        _system_arch="$( uname -m )"
+      elif
         [[ -f /proc/devices ]] &&
         GREP_OPTIONS="" \command \grep -Eo "synobios" /proc/devices >/dev/null
       then
