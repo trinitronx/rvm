@@ -69,7 +69,7 @@ requirements_alpine_define_musl()
 
 requirements_alpine_define_libyaml()
 {
-  requirements_check yaml
+  requirements_check yaml-dev
 }
 
 requirements_alpine_version_list_openjdk()
@@ -192,7 +192,7 @@ requirements_alpine_define()
       ;;
 
     (truffleruby*)
-      requirements_check zlib-dev make gcc libxml2 libyaml-dev
+      requirements_check zlib-dev make gcc libxml2
       requirements_${_system_name_lowercase}_define_libyaml $1
       requirements_${_system_name_lowercase}_define_openssl $1
       ;;
