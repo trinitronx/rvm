@@ -8,7 +8,7 @@ requirements_find_osx_brew()
     return 0
   else
     \typeset __binary
-    for __binary in ~/homebrew/bin/brew ~/.homebrew/bin/brew /usr/local/bin/brew
+    for __binary in ~/homebrew/bin/brew ~/.homebrew/bin/brew /usr/local/bin/brew /opt/homebrew/bin/brew
     do
       if
         [[ -f "${__binary}" && -s "${__binary}" && -x "${__binary}" ]]
@@ -26,7 +26,7 @@ requirements_osx_brew_version_list()
   if __rvm_which $1 >/dev/null
   then $1 --version 2>/dev/null | __rvm_sed -n -e '1{s/^.* //; p;}'
   fi
-  ls -1 $( brew --cellar )/$1/ 2>/dev/null
+  __rvm_ls -1 $( brew --cellar )/$1/ 2>/dev/null
 }
 
 requirements_osx_brew_lib_installed_prefix_check()
@@ -39,14 +39,21 @@ requirements_osx_brew_lib_installed_prefix_check()
 requirements_osx_brew_lib_installed()
 {
   \typeset brew_lib_prefix
-  brew list -1 | __rvm_grep "^${1}$" >/dev/null &&
+
+  # Test for older versions of Homebrew before adding the `--formula` flag.
+  brew_version=$( brew --version | awk 'NR==1 { print $2 }' )
+  if __rvm_version_compare $brew_version -ge 2.5.7
+  then brew_ls_flags="--formula"
+  fi
+
+  brew list -1 $brew_ls_flags | __rvm_grep "^${1}$" >/dev/null &&
   requirements_osx_brew_lib_installed_prefix_check "$1" ||
   return $?
 }
 
 requirements_osx_brew_lib_available()
 {
-  brew search | __rvm_grep "^${1}$" >/dev/null || return $?
+  brew search "/^${1}$/" | __rvm_grep "^${1}$" >/dev/null || return $?
 }
 
 requirements_osx_brew_libs_error()
@@ -274,7 +281,7 @@ requirements_osx_brew_define_gcc()
             ;;
 
         (truffleruby*)
-            brew_libs_conf+=( llvm@4 )
+            requirements_check libyaml
             ;;
 
         (*)
@@ -311,6 +318,12 @@ requirements_osx_brew_define_openssl()
       brew_openssl_package="openssl"
       ;;
 
+    (ruby-2*|ruby-3.0*)
+      brew_openssl_package="openssl@1.1"
+      # Needed for older openssl: https://bugs.ruby-lang.org/issues/18763
+      export PKG_CONFIG_PATH="$(brew --prefix openssl@1.1)/lib/pkgconfig:$PKG_CONFIG_PATH"
+      ;;
+
     (ree-1.8*)
       brew_openssl_package="openssl"
       ;;
@@ -324,7 +337,8 @@ requirements_osx_brew_define_openssl()
       ;;
 
     (*)
-      brew_openssl_package="openssl@1.1"
+      brew_openssl_package="openssl@3"
+      export PKG_CONFIG_PATH="$(brew --prefix openssl@3)/lib/pkgconfig:$PKG_CONFIG_PATH"
       ;;
   esac
 
@@ -427,7 +441,7 @@ After installation open Xcode, go to Downloads and install Command Line Tools.
       return $ret
     }
   fi
-  brew update ||
+  [ -n "$RVM_SKIP_BREW_UPDATE" ] || brew update ||
   {
     \typeset ret=$?
     rvm_error "Failed to update Homebrew, follow instructions at
@@ -445,7 +459,7 @@ requirements_osx_brew_install_brew_setup()
     __rvm_version_compare "${_system_version}" -ge 10.5
   then
     homebrew_repo="Homebrew/brew"
-    homebrew_installer="https://raw.githubusercontent.com/Homebrew/install/master/install"
+    homebrew_installer="https://raw.githubusercontent.com/Homebrew/install/master/install.sh"
     homebrew_name="Homebrew"
   else
     homebrew_repo="mistydemeo/tigerbrew"
@@ -527,6 +541,11 @@ requirements_osx_brew_ensure_brew_can_install()
   \typeset __celar_path
   __celar_path="$(brew --cellar)"
   if
+    [[ -x /opt/workbrew/bin/brew ]]
+  then
+    # Workbrew still installs with a non-writable Homebrew.
+    return 0
+  elif
     [[ ! -w "${__celar_path%/*}/bin" ]]
   then
     rvm_error "ERROR: '${__celar_path%/*}/bin' is not writable - it is required for Homebrew, try 'brew doctor' to fix it!"

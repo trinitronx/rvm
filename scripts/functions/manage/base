@@ -86,18 +86,18 @@ __rvm_manage_rubies()
   elif
     [[ "$action" == "install" ]]
   then
-    rvm_error 'Really? '"$action"', all? See "rvm list known" and limit the selection to something more sane please :)'
+    rvm_error 'Really? '"$action"', all? See "rvm list known" and limit the selection to something more sensible please :)'
     return 1
   elif
     [[ -z "${rubies_string}" ]]
   then
-    rvm_error 'Really? '"$action"', all? See "rvm list" and limit the selection to something more sane please :)'
+    rvm_error 'Really? '"$action"', all? See "rvm list" and limit the selection to something more sensible please :)'
     return 1
   else
     # explicit all && not install
     if
       (( ${rvm_force_flag:-0} == 0 )) &&
-      [[ "$action" == "reinstall" || "$action" == "remove" || "$action" == "uninstall" ]]
+      [[ "$action" == "reinstall" || "$action" == "delete" || "$action" == "remove" || "$action" == "uninstall" ]]
     then
       __rvm_ask_for "Are you SURE you wish to '$action' all rubies?" yes || return $?
     fi

@@ -7,7 +7,7 @@
 # partial duplication marker dkjnkjvnckbjncvbkjnvkj
 # prevent from loading in sh shells
 if
-  builtin test -n "${BASH_VERSION:-}" -o -n "${ZSH_VERSION:-}" -o -n "${KSH_VERSION:-}"
+  test -n "${BASH_VERSION:-}" -o -n "${ZSH_VERSION:-}" -o -n "${KSH_VERSION:-}"
 then
   case "`uname`" in
     (CYGWIN*|MINGW*)
@@ -15,6 +15,33 @@ then
 
     (SunOS)
       __shell_name="`\command \ps -p $$ -o comm=`" ;;
+
+    (Linux)
+      case "$(command uname -o)" in
+        (Android)
+          __shell_name="gawk 'BEGIN{RS=\"\"}; NR==1{print; exit}' /proc/$$/cmdline | tr - '\0'" ;;
+
+        (*)
+          if ps --help 2>&1 | grep -q "Try 'ps --help <simple|list|output"; then
+            # GNU variant procps(-ng)
+            if ps --help list 2>&1 | grep -q '\-p'; then
+              __shell_name="`\command \ps -p $$ -o comm=`" ;
+            elif ps --help output 2>&1 | grep -q '\-o'; then
+              __shell_name="`\command \ps -o pid=,comm= | grep $$ | awk '{ print \$2 }'`" ;
+            else
+              __shell_name="gawk 'BEGIN{RS=\"\"}; NR==1{print; exit}' /proc/$$/cmdline | tr - '\0'" ;
+            fi
+          else
+            # Some other variant ps
+            if ps --help 2>&1 | grep -q '\-p' ; then
+              __shell_name="`\command \ps -p $$ -o comm=`" ;
+            elif ps -h 2>&1 | grep -q '\-o'; then
+              __shell_name="`\command \ps -o pid=,comm= | grep $$ | awk '{ print \$2 }'`" ;
+            else
+              __shell_name="gawk 'BEGIN{RS=\"\"}; NR==1{print; exit}' /proc/$$/cmdline | tr - '\0'" ;
+            fi
+          fi ;;
+      esac ;;
 
     (*)
       __shell_name="`\command \ps -p $$ -o ucomm=`" ;;
@@ -215,11 +242,10 @@ then
         fi
       elif
         [[ "${__path_to_ruby}" == "${rvm_path}"* ]] &&
-        [[ -z "${GEM_HOME:-}" || -z "${GEM_PATH:-}" ]]
+        [[ -z "${GEM_HOME:-}" ]]
       then
         echo "
-Warning: PATH set to RVM ruby but GEM_HOME and/or GEM_PATH not set, see:
-    https://github.com/rvm/rvm/issues/3212
+Warning: PATH set to RVM ruby but GEM_HOME not set.
 " >&2
         if
           [[ -n "${SUDO_USER:-}" ]]

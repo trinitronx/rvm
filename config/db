@@ -8,7 +8,7 @@ niceness=0
 rvm_remote_server_path1=maven2/org/jruby/jruby-dist
 rvm_remote_server_url1=https://repo1.maven.org
 rvm_remote_server_url2=https://rubies.travis-ci.org
-rvm_remote_server_url=https://rvm_io.global.ssl.fastly.net/binaries
+rvm_remote_server_url=https://rvm-io.global.ssl.fastly.net/binaries
 #
 # RubyGems
 #
@@ -34,7 +34,7 @@ libxslt_url=ftp://xmlsoft.org/libxslt
 llvm_url=https://llvm.org/svn/llvm-project/llvm/trunk
 mono_url=http://ftp.novell.com/pub/mono/sources/mono
 ncurses_url=https://ftp.gnu.org/pub/gnu/ncurses
-openssl_url=https://www.openssl.org/source
+openssl_url=https://www.openssl.org/source/old/1.0.1
 openssl_version=1.0.1i
 pkg-config_url=http://pkgconfig.freedesktop.org/releases
 readline_url=https://ftp.gnu.org/gnu/readline
@@ -77,7 +77,7 @@ ruby_unmaintained_date=2017-04-01
 ruby_unmaintained_version=2.1.0
 ruby_url=https://cache.ruby-lang.org/pub/ruby
 ruby_url_fallback_1=https://ftp.ruby-lang.org/pub/ruby
-ruby_version=2.6.3
+ruby_version=3.4.1
 #
 # REE
 #
@@ -119,13 +119,13 @@ mruby_version=2.0.1
 #
 jruby_repo_url=https://github.com/jruby/jruby.git
 jruby_url=https://repo1.maven.org/maven2/org/jruby/jruby-dist
-jruby_version=9.2.6.0
+jruby_version=9.4.11.0
 maven_version=3.5.0
 #
 # TruffleRuby
 #
 truffleruby_url=https://github.com/oracle/truffleruby/releases/download
-truffleruby_version=19.0.0
+truffleruby_version=24.1.2
 #
 # MacRuby
 #

@@ -20,6 +20,9 @@ __rvm_fetch_ruby()
     [[ -z "${rvm_ruby_tag:-}" && -z "${rvm_ruby_revision:-}" && -z "${rvm_ruby_sha:-}"  && -z "${rvm_ruby_repo_tag:-}" ]]
   then
     __rvm_fetch_ruby_package || return $?
+  elif [[ "${rvm_ruby_interpreter}" == "truffleruby" ]]; then
+    # Always use __rvm_fetch_ruby_package() for TruffleRuby, building from the repository is not supported in RVM
+    __rvm_fetch_ruby_package || return $?
   else
     \typeset result=0
 
@@ -79,16 +82,17 @@ __rvm_fetch_ruby_package()
         return 198
         ;;
       (maglev|rubinius|rbx|truffleruby)
-        true # Should already be set from selector
+        true # Should already be set from scripts/functions/selector_interpreters
         ;;
       (*)
         rvm_ruby_url="$(__rvm_db "${rvm_ruby_interpreter}_url")/${rvm_ruby_package_file}.${rvm_archive_extension}"
         ;;
     esac
 
+    rvm_ruby_package_file_ext="${rvm_ruby_package_file}.${rvm_archive_extension}"
+
     rvm_log "$rvm_ruby_string - #downloading ${rvm_ruby_package_file}, this may take a while depending on your connection..."
-    "$rvm_scripts_path/fetch" "${rvm_ruby_url}" ||
-      return $?
+    "$rvm_scripts_path/fetch" "${rvm_ruby_url}" "${rvm_ruby_package_file_ext}" || return $?
 
     # Remove the directory if it is empty -- empty how?
     [[ -d "${rvm_src_path}/$rvm_ruby_string" ]] && rmdir "${rvm_src_path}/$rvm_ruby_string" 2>/dev/null || true
@@ -99,7 +103,7 @@ __rvm_fetch_ruby_package()
       mkdir -p "${rvm_tmp_path:-/tmp}/rvm_src_$$"
 
       __rvm_log_command "extract" "$rvm_ruby_string - #extracting $rvm_ruby_package_file to ${rvm_src_path}/$rvm_ruby_string" \
-        __rvm_package_extract "${rvm_archives_path}/$rvm_ruby_package_file.$rvm_archive_extension" "${rvm_tmp_path:-/tmp}/rvm_src_$$" ||
+        __rvm_package_extract "${rvm_archives_path}/${rvm_ruby_package_file_ext}" "${rvm_tmp_path:-/tmp}/rvm_src_$$" ||
       case $? in
         199)
           rvm_error "\nUnrecognized archive format '$archive_format'"
@@ -149,7 +153,7 @@ __rvm_fetch_ruby_head_git()
                 rvm_ruby_repo_branch="ruby_${rvm_ruby_release_version:-1}_${rvm_ruby_major_version}"
               fi
             else
-              rvm_ruby_repo_branch="trunk" # NOTE: Ruby Core team maps 'trunk' as HEAD
+              rvm_ruby_repo_branch="master" # NOTE: Ruby Core team maps 'master' as HEAD
             fi
           fi
           ;;

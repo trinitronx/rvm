@@ -56,15 +56,17 @@ __rvm_remove_from_path()
   \typeset _value
   _value="${1//+(\/)//}"
 
-  # remove multiple slashes https://github.com/rvm/rvm/issues/1364
+  # Guard to prevent removal of the entire path
+  # https://github.com/rvm/rvm/issues/4759
   if
-    [[ "$PATH" == *"//"* || "$PATH" == *"/:"* ]]
+    [[ $_value == "/*" ]]
   then
-    if [[ "${_system_type}" == "Darwin" ]]
-    then PATH="$(\sed -E -e 's#/+#/#g' -e 's#/:#:#' <<<$PATH)"
-    else PATH="$(\sed -r -e 's#/+#/#g' -e 's#/:#:#' <<<$PATH)"
-    fi
+    return
   fi
+
+  # remove multiple slashes https://github.com/rvm/rvm/issues/1364
+  while [[ "$PATH" == *"//"* ]] ; do PATH="${PATH/\/\///}" ; done
+  while [[ "$PATH" == *"/:"* ]] ; do PATH="${PATH/\/:/:}" ; done
 
   if
     __rvm_string_match ":$PATH:" "*:${_value}:*"

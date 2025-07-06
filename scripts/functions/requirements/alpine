@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+
+requirements_alpine_lib_installed()
+{
+  local _pkg="$(apk --no-interactive --no-cache --quiet list --installed "$1")"
+  [ -z "$_pkg" ] && return 1 || return 0
+}
+
+requirements_alpine_lib_available()
+{
+  local _pkg="$(apk --no-interactive --no-cache --quiet list --available "$1")"
+  [ -z "$_pkg" ] && return 1 || return 0
+}
+
+## Note: It's possible to implement bin / lib / pkg-config discovery
+## Provider prefixes currently available in Alpine 3.12:
+## cmd:  <-- could be useful: command binaries (no path, just name)
+## dbus:
+## ocaml4-impl:
+## ocaml4-intf:
+## pc:   <-- could be useful: package config
+## py3.12:
+## so:   <-- could be useful: .so libraries
+# Unused, but could be helpful to check .so provider packages
+# requirements_alpine_so_lib_available()
+# {
+#   local _pkg="$(apk --no-interactive --no-cache --quiet list --available --providers "so:$1*")"
+#   # compare with:
+#   #local _pkg="$(apk --no-interactive --no-cache --quiet list --available "$1")"
+#   [ -z "$_pkg" ] && return 1 || return 0
+# }
+
+requirements_alpine_version_list()
+{
+  apk --no-interactive list "$1" | awk '{ print $1 }' | sed -e "s#^$1-##"
+}
+
+requirements_alpine_libs_install()
+{
+  __rvm_try_sudo apk add --update --no-cache --no-interactive "$@" || return $?
+}
+
+requirements_alpine_libs_remove()
+{
+  __rvm_try_sudo apk --no-interactive del "$@" || return $?
+}
+
+requirements_alpine_update_system()
+{
+  __rvm_try_sudo apk --quiet --no-interactive update  || return $?
+}
+
+requirements_alpine_check_binary()
+{
+  __rvm_which "$1" >/dev/null 2>&1 || return $?
+}
+
+requirements_alpine_define_glibc()
+{
+  rvm_warn 'Warn: Alpine Linux uses musl, not glibc'
+  requirements_alpine_define_musl
+}
+
+requirements_alpine_define_musl()
+{
+  requirements_check musl-dev
+}
+
+
+requirements_alpine_define_libyaml()
+{
+  requirements_check yaml-dev
+}
+
+requirements_alpine_version_list_openjdk()
+{
+ # openjdkNN versions numerically sorted by versions (8th-9th characters)
+ # oldest to latest
+ apk --no-interactive --no-cache --quiet list --available 'openjdk*' | sed -Ee 's/^(openjdk[0-9]+)-.*/\1/' | sort -k1.8g,1.9g | uniq || return $?
+}
+
+requirements_alpine_define_openjdk()
+{
+  local old_ifs __openjdk_latest
+  \typeset -a __openjdk_versions __openjdk_ignore_versions
+  __openjdk_ignore_versions=("openjdk-mandrel")
+  old_ifs="$IFS"
+  IFS=$'\n' read -r -d '' -a __openjdk_versions \
+    < <( requirements_alpine_version_list_openjdk && printf '\0' )
+  IFS="$old_ifs"
+  requirements_alpine_check_binary javac ||
+    for ((i=${#__openjdk_versions[@]}-1; i>=0; i--))
+    do
+      __rvm_array_contains "${__openjdk_versions[$i]}" "${__openjdk_ignore_versions[@]}" && continue
+      requirements_alpine_lib_installed "${__openjdk_versions[$i]}" && break ||
+        requirements_alpine_lib_available "${__openjdk_versions[$i]}" &&
+	  requirements_check "${__openjdk_versions[$i]}" && break
+    done
+    requirements_check java-common
+}
+
+requirements_alpine_define_openssl()
+{
+  # OpenSSL Ruby version compatibility
+  # Reference: https://www.rubyonmac.dev/openssl-versions-supported-by-ruby
+  # Last Alpine version to support OpenSSL 1.1: 3.16
+  # References:
+  #   - https://pkgs.alpinelinux.org/package/v3.16/main/x86/libssl1.1
+  #   - https://alpinelinux.org/releases/
+  case "${_system_version}" in
+      # 3.13 is oldest still supported by request as of 2025-07-05
+      (3.16.*|3.15.*|3.14.*|3.13.*)
+        case "$1" in
+          (ruby-3.1*|ruby-3.2*|ruby-3.3*|ruby-3.4*)
+            rvm_notify "Alpine Linux ${_system_version} supports libssl3 and libssl1.1, Ruby ${1} needs libssl3 so using it"
+            requirements_check libssl3 ;;
+          (ruby-3.0*|ruby-2.*|ruby-1*)
+            rvm_notify "Alpine Linux ${_system_version} supports libssl3 and libssl1.1, Ruby ${1} needs libssl1.1 so using it"
+            requirements_check libssl1.1 ;;
+          (*)
+            rvm_warn "Alpine Linux ${_system_version} supports libssl3 and libssl1.1, defaulting to libssl3. Unknown Ruby ${1} may or may not support this."
+            requirements_check libssl3 ;;
+        esac ;;
+      (3.12.*|3.11.*|3.10.*|3.9.*|3.8.*|3.7.*|3.6.*|3.5.*) ;& # fallthrough
+      (3.4.*|3.3.*|3.2.*|3.1.*|3.0.*|2.*|1.*)
+        rvm_error "Error: Alpine Linux ${_system_version} is not supported"
+        return 40
+        ;;
+      (*)
+        # Assume newer Alpine supports libssl3
+        case "$1" in
+          (ruby-3.1*|ruby-3.2*|ruby-3.3*|ruby-3.4*)
+            rvm_notify "Alpine Linux ${_system_version} only supports libssl3, Ruby ${1} needs libssl3 so using it"
+            requirements_check libssl3 ;;
+          (ruby-3.0*|ruby-2.*|ruby-1*)
+            rvm_error "Alpine Linux ${_system_version} only supports libssl3, Ruby ${1} needs libssl1.1 but it's not available."
+            return 40
+            ;;
+          (*)
+            rvm_warn "Alpine Linux ${_system_version} only supports libssl3, defaulting to libssl3. Unknown Ruby ${1} may or may not support this."
+            requirements_check libssl3 ;;
+        esac ;;
+  esac
+
+  requirements_check openssl-dev
+}
+
+requirements_alpine_define()
+{
+  case "${_system_version}" in
+    # 3.13 is oldest still supported by request as of 2025-07-05
+    # Package repos for all older versions are no longer hosted
+    # Releases EOL list:
+    #   - https://alpinelinux.org/releases/
+    (3.12.*|3.11.*|3.10.*|3.9.*|3.8.*|3.7.*|3.6.*|3.5.*) ;& # fallthrough
+    (3.4.*|3.3.*|3.2.*|3.1.*|3.0.*|2.*|1.*)
+      rvm_error "Error: Alpine Linux ${_system_version} is not supported"
+      return 40
+      ;;
+    (*)
+      # Other newer supported versions
+      : ;; # no-op
+  esac
+
+  case "$1" in
+    (rvm)
+      requirements_check bash curl patch
+      ;;
+
+    (jruby*)
+      requirements_check make g++
+
+      if
+        is_head_or_disable_binary "$1"
+      then
+        requirements_alpine_check_binary javac ||
+          requirements_alpine_define_openjdk
+        requirements_check git
+        case $( jruby_installation_method  "$1" ) in
+          mvn) requirements_check_custom_after mvn=maven ;;
+        esac
+      else
+        requirements_alpine_check_binary java ||
+          requirements_alpine_define_openjdk
+        requirements_check git
+      fi
+      ;;
+
+    (rbx*|rubinius*)
+      requirements_check automake bison clang-3.6 flex gdbm-devel git libyaml-devel llvm-devel llvm-static \
+                         make ncurses-devel openssl-devel readline-devel ruby-devel rubygems zlib-devel
+      ;;
+
+    (truffleruby*)
+      requirements_check zlib-dev make gcc libxml2
+      requirements_${_system_name_lowercase}_define_libyaml $1
+      requirements_${_system_name_lowercase}_define_openssl $1
+      ;;
+
+    (ir*)
+      true # not that easy
+      ;;
+
+    (opal)
+      true # not that easy
+      ;;
+
+    (*-head)
+      requirements_check git
+      requirements_alpine_define "${1%-head}"
+      requirements_version_minimal autoconf 2.67
+      ;;
+
+    (*)
+      if [[ ${#rvm_patch_names[@]} -gt 0 ]]
+      then requirements_version_minimal autoconf 2.67
+      fi
+
+      requirements_check autoconf automake bison bzip2 g++ libffi-dev libtool make patch readline \
+                         readline-dev ruby sqlite-dev zlib zlib-dev
+
+      # Note: Alpine uses musl libc rather than glibc
+      requirements_${_system_name_lowercase}_define_musl $1
+      requirements_${_system_name_lowercase}_define_libyaml $1
+      requirements_${_system_name_lowercase}_define_openssl $1
+      ;;
+  esac
+}

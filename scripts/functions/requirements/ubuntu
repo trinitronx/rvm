@@ -7,6 +7,17 @@ requirements_ubuntu_define_libgmp()
   requirements_check libgmp-dev
 }
 
+requirements_ubuntu_define_libncurses()
+{
+  if
+    __rvm_version_compare ${_system_version} -ge 24.04
+  then
+    requirements_check libncurses-dev
+  else
+    requirements_check libncurses5-dev
+  fi
+}
+
 requirements_ubuntu_define_libreadline()
 {
   if
@@ -24,7 +35,7 @@ requirements_ubuntu_define_libssl()
   # starting from Ubuntu 17.10 (Artful Aardvark)
 
   case "$1" in
-    (ruby-2.3*|ruby-2.2*|ruby-2.1*|ruby-2.0*|ruby-1.9*|ruby-1.8*)
+    (ruby-2.3*|ruby-2.2*|ruby-2.1*|ruby-2.0*|ruby-1.9*|ruby-1.8*|ree-1.8*)
       if
         __rvm_version_compare ${_system_version} -ge 17.10
       then

@@ -14,12 +14,45 @@ requirements_fedora_define_openssl()
         requirements_check openssl-devel
       fi
       ;;
+    (ruby-2.7*|ruby-2.6*|ruby-2.5*|ruby-2.4*)
+      if
+        __rvm_version_compare "${_system_version}" -ge 36
+      then
+        undesired_check openssl-devel
+        requirements_check openssl1.1-devel
+      else
+        undesired_check compat-openssl10-devel
+        requirements_check openssl-devel
+      fi
+      ;;
 
     (*)
       undesired_check compat-openssl10-devel
       requirements_check openssl-devel
       ;;
   esac
+}
+
+requirements_fedora_define_glibc()
+{
+  if
+    __rvm_version_compare "${_system_version}" -lt 33
+  then
+    requirements_check glibc-headers glibc-devel
+  else
+    requirements_check glibc-devel
+  fi
+}
+
+requirements_fedora_define_zlib()
+{
+  if
+    __rvm_version_compare "${_system_version}" -ge 40
+  then
+    requirements_check zlib-ng-compat zlib-ng-compat-devel
+  else
+    requirements_check zlib zlib-devel
+  fi
 }
 
 if
