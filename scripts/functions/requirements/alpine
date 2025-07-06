@@ -35,11 +35,6 @@ requirements_alpine_version_list()
   apk --no-interactive list "$1" | awk '{ print $1 }' | sed -e "s#^$1-##"
 }
 
-#requirements_centos_install_custom()
-#{
-#  requirements_rvm_pkg_libs_install "$@" || return $?
-#}
-
 requirements_alpine_libs_install()
 {
   __rvm_try_sudo apk add --update --no-cache --no-interactive "$@" || return $?
@@ -54,44 +49,6 @@ requirements_alpine_update_system()
 {
   __rvm_try_sudo apk --quiet --no-interactive update  || return $?
 }
-
-# requirements_alpine_before_update_check_repos_missing_error()
-# {
-#   rvm_error "There is no '$*' package available for installation and RVM does not know how to make that happen,
-# please tell us how to install '$*' on '${_system_name}-${_system_version}' here: https://github.com/rvm/rvm/issues"
-#   return 49
-# }
-
-# return 0  when found missing packages
-# return >0 when no missing packages
-# requirements_alpine_before_update_check_missing_packages()
-# {
-#   \typeset -a __packages_to_check
-#   \typeset __package_name
-#   __packages_to_check=( yaml-cpp-dev libffi-dev )
-# 
-#   __missing_packages=()
-#   for __package_name in "${__packages_to_check[@]}"
-#   do
-#     if
-#       [[ " ${packages_to_install[*]} " == *" ${__package_name} "* ]] &&
-#       ! requirements_alpine_lib_installed "${__package_name}" &&
-#       ! requirements_alpine_lib_available_no_caching "${__package_name}"
-#     then
-#       __missing_packages+=( "${__package_name}" )
-#     fi
-#   done
-#   [[ ${#__missing_packages[*]} -gt 0 ]] || return 2
-# }
-
-# requirements_alpine_before_update()
-# {
-#   case "$1" in
-#     (ruby-1*)
-#       requirements_centos_before_update_check_repos || return $?
-#       ;;
-#   esac
-# }
 
 requirements_alpine_check_binary()
 {
@@ -131,24 +88,15 @@ requirements_alpine_define_openjdk()
   IFS=$'\n' read -r -d '' -a __openjdk_versions \
     < <( requirements_alpine_version_list_openjdk && printf '\0' )
   IFS="$old_ifs"
-    #requirements_check_fallback "$__openjdk_latest" java-common || \
   requirements_alpine_check_binary javac ||
     for ((i=${#__openjdk_versions[@]}-1; i>=0; i--))
     do
-      #if [ (( $i+1 )) -eq "${#__openjdk_versions[@]}" ]; then
-      #  __openjdk_latest="${__openjdk_versions[-1]}"
-      #fi
       __rvm_array_contains "${__openjdk_versions[$i]}" "${__openjdk_ignore_versions[@]}" && continue
       requirements_alpine_lib_installed "${__openjdk_versions[$i]}" && break ||
         requirements_alpine_lib_available "${__openjdk_versions[$i]}" &&
 	  requirements_check "${__openjdk_versions[$i]}" && break
     done
     requirements_check java-common
-
-## TODO: Remove debug
-    echo "to install: ${packages_to_install[@]}"
-    echo "available: ${__available_dependencies[@]}"
-#  requirements_check $__openjdk_latest
 }
 
 requirements_alpine_define_openssl()
